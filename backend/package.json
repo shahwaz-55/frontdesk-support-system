@@ -4,11 +4,11 @@
   "private": true,
   "main": "src/server.js",
   "scripts": {
-    "dev": "TZ=Asia/Kolkata nodemon src/server.js",
-    "start": "TZ=Asia/Kolkata node src/server.js",
+    "dev": "cross-env TZ=Asia/Kolkata nodemon src/server.js",
+    "start": "cross-env TZ=Asia/Kolkata node src/server.js",
     "db:setup": "node src/setup-db.js",
     "seed": "node src/seed.js",
-    "test": "TZ=Asia/Kolkata node --test"
+    "test": "cross-env TZ=Asia/Kolkata node --test"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -19,6 +19,7 @@
     "pg": "^8.13.1"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "nodemon": "^3.1.7"
   }
 }
