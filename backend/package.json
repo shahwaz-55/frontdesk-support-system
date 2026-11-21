@@ -1,0 +1,24 @@
+{
+  "name": "frontdesk-backend",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "TZ=Asia/Kolkata nodemon src/server.js",
+    "start": "TZ=Asia/Kolkata node src/server.js",
+    "db:setup": "node src/setup-db.js",
+    "seed": "node src/seed.js",
+    "test": "TZ=Asia/Kolkata node --test"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.7"
+  }
+}
