@@ -19,12 +19,26 @@ async function holidaySet(db = pool) {
 }
 function publicTicket(row) {
   const t = {...row};
-  t.response_overdue = !t.first_response_at && !t.sla_paused_at && t.response_due_at && new Date(t.response_due_at) < new Date();
-  t.resolution_overdue = !['RESOLVED','CLOSED'].includes(t.status) && !t.sla_paused_at && t.resolution_due_at && new Date(t.resolution_due_at) < new Date();
+  const isActive = !['RESOLVED', 'CLOSED'].includes(t.status);
+
+  t.response_overdue = Boolean(
+    isActive &&
+    !t.first_response_at &&
+    !t.sla_paused_at &&
+    t.response_due_at &&
+    new Date(t.response_due_at) < new Date()
+  );
+
+  t.resolution_overdue = Boolean(
+    isActive &&
+    !t.sla_paused_at &&
+    t.resolution_due_at &&
+    new Date(t.resolution_due_at) < new Date()
+  );
+
   t.is_overdue = Boolean(t.response_overdue || t.resolution_overdue);
   return t;
-}
-app.get('/api/health', async (_req,res) => {
+}app.get('/api/health', async (_req,res) => {
   try { const r=await pool.query('SELECT NOW() AS now'); res.json({ok:true,database:'connected',time:r.rows[0].now}); }
   catch { res.status(500).json({ok:false,error:'Database unavailable'}); }
 });
