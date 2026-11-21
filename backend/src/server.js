@@ -39,6 +39,23 @@ app.post('/api/auth/login', async (req,res) => {
     res.json({token,agent:{id:a.id,name:a.name,email:a.email}});
   } catch { res.status(500).json({error:'Login unavailable'}); }
 });
+app.post('/api/maintenance/close-stale',async(req,res)=>{
+  if(!process.env.MAINTENANCE_SECRET||req.headers['x-maintenance-secret']!==process.env.MAINTENANCE_SECRET)return res.status(401).json({error:'Unauthorized'});
+  const c=await pool.connect(); let count=0;
+  try{
+    await c.query('BEGIN'); const holidays=await holidaySet(c);
+    const waiting=await c.query(`SELECT id,waiting_since FROM tickets WHERE status='WAITING_CUSTOMER' AND waiting_since IS NOT NULL FOR UPDATE`);
+    for(const t of waiting.rows){
+      if(workingMinutesBetween(t.waiting_since,new Date(),holidays)>=5*MINUTES_PER_DAY){
+        await c.query(`UPDATE tickets SET status='CLOSED',closed_at=NOW(),updated_at=NOW(),sla_paused_at=NULL WHERE id=$1`,[t.id]);
+        await audit(c,t.id,null,'AUTO_CLOSED_FOR_NO_CUSTOMER_REPLY',{waitingSince:t.waiting_since,thresholdWorkingMinutes:5*MINUTES_PER_DAY});
+        count++;
+      }
+    }
+    await c.query('COMMIT');res.json({closedCount:count});
+  }catch(e){await c.query('ROLLBACK');res.status(500).json({error:'Maintenance job failed'});}
+  finally{c.release();}
+});
 app.use('/api',auth);
 app.get('/api/me',(req,res)=>res.json({agent:req.agent}));
 
@@ -159,23 +176,7 @@ app.post('/api/tickets/:id/messages',async(req,res)=>{
 });
 // Invoke daily via scheduler. Customer inactivity is measured in working time,
 // excluding weekends and configured holidays.
-app.post('/api/maintenance/close-stale',async(req,res)=>{
-  if(!process.env.MAINTENANCE_SECRET||req.headers['x-maintenance-secret']!==process.env.MAINTENANCE_SECRET)return res.status(401).json({error:'Unauthorized'});
-  const c=await pool.connect(); let count=0;
-  try{
-    await c.query('BEGIN'); const holidays=await holidaySet(c);
-    const waiting=await c.query(`SELECT id,waiting_since FROM tickets WHERE status='WAITING_CUSTOMER' AND waiting_since IS NOT NULL FOR UPDATE`);
-    for(const t of waiting.rows){
-      if(workingMinutesBetween(t.waiting_since,new Date(),holidays)>=5*MINUTES_PER_DAY){
-        await c.query(`UPDATE tickets SET status='CLOSED',closed_at=NOW(),updated_at=NOW(),sla_paused_at=NULL WHERE id=$1`,[t.id]);
-        await audit(c,t.id,null,'AUTO_CLOSED_FOR_NO_CUSTOMER_REPLY',{waitingSince:t.waiting_since,thresholdWorkingMinutes:5*MINUTES_PER_DAY});
-        count++;
-      }
-    }
-    await c.query('COMMIT');res.json({closedCount:count});
-  }catch(e){await c.query('ROLLBACK');res.status(500).json({error:'Maintenance job failed'});}
-  finally{c.release();}
-});
+
 if(!process.env.JWT_SECRET || process.env.JWT_SECRET.length < 32){
   console.error('JWT_SECRET must be set to a random value of at least 32 characters');
   process.exit(1);
